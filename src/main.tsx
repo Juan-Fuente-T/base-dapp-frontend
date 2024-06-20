@@ -17,7 +17,7 @@ import '@rainbow-me/rainbowkit/styles.css'
 const queryClient = new QueryClient()
 
 export const config = getDefaultConfig({
-  appName: 'Curso dApps on-chain',
+  appName: 'EducatETH DAPP',
   projectId: import.meta.env.VITE_PROJECT_ID,
   chains: [arbitrumSepolia, arbitrum],
 })
