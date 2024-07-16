@@ -15,7 +15,7 @@ function App(): JSX.Element {
   const [isMinting, setIsMinting] = useState(false);
   const [destinyAddress, setDestinyAddress] = useState("");
   const [amount, setAmount] = useState(1);
-  const safeAddress = address?? 'Plases connect your address'; // Se utiliza este string como placeholder
+  const safeAddress = address?? 'Please, connect your wallet'; // Se utiliza este string como placeholder
 
   const { data, isLoading, refetch } = useReadContract({
     abi,
