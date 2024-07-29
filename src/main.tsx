@@ -7,7 +7,7 @@ import {
   darkTheme,
   getDefaultConfig,
 } from '@rainbow-me/rainbowkit'
-import { arbitrum, arbitrumSepolia } from 'wagmi/chains'
+import { sepolia } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
 import { ToastContainer } from 'react-toastify'
@@ -19,7 +19,8 @@ const queryClient = new QueryClient()
 export const config = getDefaultConfig({
   appName: 'EducatETH DAPP',
   projectId: import.meta.env.VITE_PROJECT_ID,
-  chains: [arbitrumSepolia, arbitrum],
+  // chains: [arbitrumSepolia, arbitrum],
+  chains: [sepolia],
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
