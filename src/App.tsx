@@ -1,202 +1,300 @@
-// Deploy valido arbitrum sepolia: 0xc6f500f1fea380dbc2a0f6b2e2f5ad97c98bfd31
-// Deploy valido arbitrum sepolia: 0xE19850B7F65aA43f2974AA5218bA705CB0562814
-// hash: 0xc9593b2bd630f702cdbe169fc6715a2afa959e6557f7ac2d9694d95882ea698e
-// signature: 0x4d16ff811ea2514bd6d5994dea945844609816fa5000d0aee1c48643f220a83c7d70a5bba0d92a729489f799767575f8c3cf222738f31649b22f7721dee13a7d1c
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useSignMessage, useWriteContract } from 'wagmi'
 import { CONTRACT_ADDRESS } from './constants'
 import { abi } from './assets/abis/erc1155AutenticationWithoutOnlyOwner'
-import { createContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { waitForTransactionReceipt } from 'wagmi/actions'
 import { config } from './main'
 import { toast } from 'react-toastify'
-import { hashMessage, isAddress } from 'viem/utils'; 
+import { isAddress } from 'viem/utils'; 
+import { Contract, ethers, hashMessage, JsonRpcProvider, Wallet, Signer } from "ethers";
 import truncateEthAddress from 'truncate-eth-address';
-import { signMessage } from '@wagmi/core'
+import { SigningKey } from 'ethers'
+// import Web3 from "web3";
 
-import { ethers } from 'ethers'; // Asegúrate de tener ethers.js instalado y configurado
-
-import { keccak256 } from 'ethers';
-import { toUtf8Bytes } from 'ethers';
-import { arrayify } from '@ethersproject/bytes';
 
 function App(): JSX.Element {
-  const { isError, signMessageAsync } = useSignMessage();
   const { address, isConnected } = useAccount();
-  const [isMinting, setIsMinting] = useState(false);
   const [destinyAddress, setDestinyAddress] = useState("");
-  const [amount, setAmount] = useState(1);
   const safeAddress = address?? 'Please, connect your wallet'; // Se utiliza este string como placeholder
-  const [balanceOf, setBalanceOf] = useState<string | undefined>(undefined);
-//   const [isApprove, setIsApprove] = useState<string | null>(null);
-//   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [amount, setAmount] = useState(1);
+  const [contract, setContract] = useState<Contract | null>(null);
+  const [balanceOf, setBalanceOf] = useState<string | null>(null);
+  const [isMinting, setIsMinting] = useState(false);
+  const [isApprove, setIsApprove] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [isTransferring, setIsTransferring] = useState<boolean>(false);
-  const BalanceContext = createContext({});
+  const [provider, setProvider] = useState<JsonRpcProvider  | null>(null);
+  const [userAddress, setUserAddress] = useState<SigningKey | string | null>(null);
+  // const [signer, setSigner] = useState<Signer | null>(null);
+  
+  // const { signedMessage } = useSignMessage();
 
-  const { data, isLoading, refetch } = useReadContract({
-    abi,
-    address: CONTRACT_ADDRESS,
-    functionName: 'balanceOf',
-    args: [address],
-  })
+  useEffect(() => {(async () => {
+    console.log("BALANCE ADDRESS", balanceOf);
+    console.log("P KEY", import.meta.env.VITE_WALLET_PRIVATE_KEY );
+    // const init = async () => {
+      const provider: JsonRpcProvider = new JsonRpcProvider(
+        import.meta.env.VITE_ARBITRUM_SEPOLIA_RPC_URL
+        // process.env.VITE_ARBITRUM_SEPOLIA_RPC_URL
+      );
 
-  // useEffect(() => {
-  //   // Comprueba si hay datos disponibles y actualiza el estado balanceOf
-  //   if (data) {
-  //     setBalanceOf(data.toString());
-  //     console.log("BalanceOf actualizado:", data.toString());
-  //   } else {
-  //     console.log("No hay datos");
-  //   }
-  // }, [data]); // Dependencia del efecto
+      setProvider(provider);
+      console.log("PROVIDER", provider);
 
-  // useEffect(() => {
-  //   if (isConnected) {
-  //     refetch(); // Refetch los datos cuando el componente se monta o cuando la dirección cambia
-  //   }
-  // }, [isConnected, refetch]);
+      async function getSignerAddress(provider: JsonRpcProvider): Promise<string> {
+        const signer = await provider.getSigner();
+        console.log("SIGNER", signer);
+        return await signer.getAddress();
+      }
+      
+      // const connectedAddress = await getSignerAddress(provider);
+      // setUserAddress(connectedAddress);
+      // console.log('Dirección conectada:', connectedAddress);
+      
+      
+      // const connectedAddress = await getConnectedAddress();
 
-  // useEffect(() => {
-  //   if (!isLoading && !isError && data) {
-  //     setBalanceOf(data.toString());
-  //     console.log("BalanceOf actualizado:", data.toString());
-  //   }
-  // }, [data, isLoading, isError]);
+      const signer: ethers.Wallet = new Wallet(
+        // process.env.VITE_WALLET_PRIVATE_KEY || "",
+        import.meta.env.VITE_WALLET_PRIVATE_KEY,
+        provider
+      );
+      // setSigner(signer);
+      console.log("Signer", signer);
+      const initContract = new Contract(CONTRACT_ADDRESS, abi, signer);
+      setContract(initContract);
+      console.log("Contract", contract);
+
+      setBalanceOf(await initContract.balanceOf(address, 1));
+      // setBalanceOf(await initContract.balanceOf(initAddress));
+      console.log("2BALANCE ADDRESS2", balanceOf);
+
+      setIsApprove(
+        await initContract.isApprovedForAll(address, CONTRACT_ADDRESS)
+      );
+      // initContract.on('Transfer', async (from, to, value) => {
+        // if (address === from || address === to){
+          //   setBalanceOf(await initContract.balanceOf(initAddress, 1));
+      // }
+      //})
+
+      setIsLoading(false);
+      console.log("isLoading_last", isLoading);
+    // };
+
+    // init();
+  })()
+  }, [balanceOf]);
 
   
-  const { writeContractAsync } = useWriteContract();
-  const { signMessage } = useSignMessage();
-  const [signedMessage, setSignedMessage] = useState<{ hash: string | null, signature: string | null }>({ hash: null, signature: null });  
-  
- 
+
   const handleMint = async () => {
-    setIsMinting(true)
-    const result = await handleSignMessage();
-    if (!result || !result.message || !result.signature) {
-      toast.error('Failed to sign message. Cannot proceed with minting.');
-      setIsMinting(false);
-      return;
-    }
-
-    const { message, signature } = result;
-    const hash = keccak256(toUtf8Bytes(message)); // Generar el hash
-      // const message = "Hola, EducatETH pagará el gas por ti";
-      // const {hash, signature} = await handleSignMessage();
-      // const signature = await handleSignMessage(message);
-      // const signature = signMessage({ message });
+    setIsMinting(true);
+    try {
+      // if (!ethers.isAddress(address)) {
+      //   throw new Error('Invalid recipient address');
+      // }
+      const message = "Hola, EducatETH pagará el gas por ti";
+      const hash = hashMessage(message);
+      const signature = await signMessage(message);
       console.log("Hash", hash);
       console.log("address", address);
       console.log("Signature", signature);
-    const isValidSignature = await verifySignature(message, signature, address);    
-      if (!isValidSignature) {
-        toast.error('Signature verification failed. Cannot proceed with minting.');
-        setIsMinting(false);
-        return;
+      //hash 0x3073e9989ac6f090ebb98c322ca55ab133c1de6e5ad787f0c9161ff4a89106b6
+      //signature 0x0c0cfd41ffca4d767f7637740964e654147a9fe9f8edace6f1923bfea604088b04029a29ed6311cadb3c632837c9a34367c8ec1b85a96e59d5b10e03dded7e611b
+      // 0x3073e9989ac6f090ebb98c322ca55ab133c1de6e5ad787f0c9161ff4a89106b6
+      // 0xa1496a1350adc2a37dbd972312b983ea0c0edd8ed6e1ca76a22463c97a6ff6c1429edc4828a5c2d4659c94cad9e1bd99b66c7cd6e09503114959e43d2bf3e5a11c
+      // 0x3073e9989ac6f090ebb98c322ca55ab133c1de6e5ad787f0c9161ff4a89106b6
+      // 0x0c0cfd41ffca4d767f7637740964e654147a9fe9f8edace6f1923bfea604088b04029a29ed6311cadb3c632837c9a34367c8ec1b85a96e59d5b10e03dded7e611b
+      if (!contract) {
+        throw new Error("Contract not found");
       }
-  
 
-    try {
-      const txHash = await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: 'mint',
-        args: [hash, signature, address, 1, 1],
-      })
+      // const mintTx = await contract.mint(address, 1, 1);
+      const mintTx = await contract.mint(hash, signature, address, 1, 1, {
+        gasLimit: 5000000,
+      });
+      // const mintTx = await contract.mint(hash, signature, address, 7);
+      // const mintTx = await contract.mint(address, 1, 1);
+      await mintTx.wait();
 
-      await waitForTransactionReceipt(config, {
-        confirmations: 1,
-        hash: txHash,
-      })
-      
+      console.log("Prueba");
+      setBalanceOf(await contract.balanceOf(address, 1));
+      // setBalanceOf(await contract.balanceOf(address));
 
-      setIsMinting(false)
-      toast('Minted successfully')
-
-      refetch()
+      toast("Minted successfully");
     } catch (error) {
-      toast.error('Error while minting. Try again.')
-      setIsMinting(false)
-      console.error(error)
+      console.error(error);
+      toast.error("Error while minting. Try again.");
+    } finally {
+      setIsMinting(false);
     }
-  }
-  
+  };
   const handleTransfer = async () => {
-    if (!isAddress(destinyAddress)) {
-      throw new Error('Invalid recipient address');
+    console.log("useraddress", address);
+    // Obtén el signer del usuario
+    if(!address){
+      console.log("userAddress null");
+      toast.error("No se pudo obtener el signer del usuario. Por favor, inicia sesión.");
+      return;
     }
-    setIsMinting(true)
+    console.log("Provider", provider);
+    const signer = await provider?.getSigner();
+  //   const userSigner: ethers.Wallet = new Wallet(
+  //   // process.env.VITE_WALLET_PRIVATE_KEY || "",
+  //   address,
+  //   provider
+  // );
+  console.log("Signer", signer);
+  // Crea una nueva instancia del contrato con el signer del usuario
+  if (!signer) {
+    throw new Error("Signer not found");
+  }
+    const userContract = new Contract(CONTRACT_ADDRESS, abi, signer);
+    if (!contract) {
+      throw new Error("Contract not found");
+    }
+    console.log("CONTRACT", contract);
+
+    setIsTransferring(true);
+    // if (!contract) {
+    //   throw new Error("Contract not found");
+    // }
     try {
-      console.log("DatosTransfer", CONTRACT_ADDRESS, address, destinyAddress,  BigInt("1"), BigInt(amount.toString()));
-      
-      const txHashSetApproval = await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: 'setApprovalForAll',
-        args: [CONTRACT_ADDRESS, true],
-      })
-      await waitForTransactionReceipt(config, {
-        confirmations: 1,
-        hash: txHashSetApproval,
+      console.log(
+        "DatosTransfer",
+        CONTRACT_ADDRESS,
+        address,
+        destinyAddress,
+        BigInt("1"),
+        BigInt(amount.toString())
+      );
+
+      const approveTx = await userContract.setApprovalForAll(
+        CONTRACT_ADDRESS,
+        true
+      );
+      await approveTx.wait();
+      console.log("approveTx", approveTx);
+      contract.on("ApprovalForAll", (owner, operator, approved, event) => {
+        console.log(`Evento ApprovalForAll recibido:
+          Owner: ${owner}
+          Operador: ${operator}
+          Aprobado: ${approved}
+          Evento: ${event}`);
       });
 
-      const txHash = await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: 'safeTransferFrom',
-        args: [address, destinyAddress,  BigInt("1"), BigInt(amount.toString()),"0x"],
-      })
-
-      await waitForTransactionReceipt(config, {
-        confirmations: 1,
-        hash: txHash,
-      })
-
-      setIsMinting(false)
-      toast('Transferred successfully')
-
-      refetch()
-      } catch (error: any) {
-    if (error.message.includes('Invalid sender address')) {
-      toast.error('Sender address is invalid. Please check and try again.');
-    } else if (error.message.includes('Invalid recipient address')) {
-      toast.error('Recipient address is invalid. Please check and try again.');
-    } else {
-      toast.error('Error while transferring. Try again.');
-    }
-    setIsMinting(false);
-    console.error(error);
-  }
-  }
-const verifySignature = async (message: any, signature: any, address: any) => {
-  // const messageHash = ethers.hashMessage(message); // Usar hashMessage de ethers
-  const recoveredAddress = ethers.verifyMessage(message, signature); // Usar verifyMessage de ethers
-  return recoveredAddress === address;
-};
-
-
-const handleSignMessage = async (): Promise<{ message: string | null; signature: string | null }> => {    try {
-      if (!isConnected || !address) {
-        throw new Error('Wallet not connected or address not available');
+      const transferFromTx = await userContract.safeTransferFrom(
+        address,
+        destinyAddress,
+        BigInt("1"),
+        BigInt(amount.toString()),
+        "0x",
+        {
+          gasLimit: 5000000,
+        }
+      );
+      if (!transferFromTx) {
+        console.error(
+          "Error al transferir:",
+          transferFromTx?.reason || "No se pudo determinar el motivo."
+        );
       }
-      
-      const message = "Hola, firma para hacer una transaccion segura!";
-      const hash = keccak256(toUtf8Bytes(message)); // Generar el hash
-      console.log("Hash:", hash);
-      
-      const signature = await signMessageAsync({
-        message, // Convertir el hash a formato adecuado
-      });
-  
-      console.log("Signature:", signature);
-      return { message, signature };
-    } catch (error) {
-      console.error("Failed to sign message:", error);
-      toast.error('Failed to sign message. Try again.');
-      return { message: null, signature: null };
+      await transferFromTx.wait();
+
+      // setBalanceOf(await contract.balanceOf(address));
+      setBalanceOf(await contract.balanceOf(address, 1));
+      // setAllowance(
+      //   await contract.allowance(
+      //     address,
+      //     "0xD96B642Ca70edB30e58248689CEaFc6E36785d68"
+      //   )
+      // );
+
+      toast("Transferred successfully");
+
+      // refetch()
+    } catch (error: any) {
+      if (error.message.includes("Invalid sender address")) {
+        toast.error("Sender address is invalid. Please check and try again.");
+      } else if (error.message.includes("Invalid recipient address")) {
+        toast.error(
+          "Recipient address is invalid. Please check and try again."
+        );
+      } else {
+        toast.error("Error while transferring. Try again.");
+      }
+      console.error(error);
+    } finally {
+      setIsTransferring(false);
     }
   };
 
+  // const signMessage = async (message: string) => {
+  //   // const signMessage = async () => {
+  //   if (!provider) {
+  //     uiConsole("provider not initialized yet");
+  //     return;
+  //   }
+  //   const web3 = new Web3(provider as any);
+
+  //   // Get user's Ethereum public address
+  //   const fromAddress = (await web3.eth.getAccounts())[0];
+
+  //   // Sign the message
+  //   const signedMessage = await web3.eth.personal.sign(
+  //     message,
+  //     fromAddress,
+  //     "test password!" // configure your own password here.
+  //   );
+  //   // uiConsole(signedMessage);
+  //   if (!signedMessage) {
+  //     throw new Error("Failed to sign message");
+  //   }
+
+  //   return signedMessage;
+  // };
+  const signMessage = async (message: string) => {
+    // const signMessage = async () => {
+    if (!provider) {
+      uiConsole("provider not initialized yet");
+      return;
+    }
+    // if (!signer) {
+    //   uiConsole("signer not initialized yet");
+    //   return;
+    // }
+    if (typeof window.ethereum !== 'undefined') {
+      // Crear un nuevo proveedor Web3Provider
+      let provider2 = new ethers.BrowserProvider(window.ethereum)    
+      // Ahora puedes usar `provider` para interactuar con la blockchain Ethereum
+      const signer = await provider2.getSigner();
+         // const provider: ethers.providers.JsonRpcProvider = new ethers.providers.Web3Provider(window.ethereum);
+
+    // Get user's Ethereum public address
+    // const fromAddress = await signer.getAddress();
+    // const signer: ethers.Wallet = new Wallet(
+    //   //process.env.VITE_WALLET_PRIVATE_KEY || "",
+    //   import.meta.env.VITE_WALLET_PRIVATE_KEY || "",
+    //   provider
+    // );
+    
+    console.log("Signer", signer);
+
+    // Sign the message
+    const signedMessage = await signer.signMessage(
+      message
+    );
+    // uiConsole(signedMessage);
+    if (!signedMessage) {
+      throw new Error("Failed to sign message");
+    }
+    console.log("Message signed", signMessage);
+    return signedMessage;
+  }
+  };
   function uiConsole(...args: any[]): void {
     const el = document.querySelector("#console>p");
     if (el) {
@@ -204,6 +302,7 @@ const handleSignMessage = async (): Promise<{ message: string | null; signature:
     }
     console.log("Args: ", ...args);
   } 
+
   return (
     // <main className="flex min-h-screen flex-col items-center justify-center w-full  my-24" style={{ backgroundColor: '#08050d'}}>
     <main className="bg-slate-900 text-slate-200 flex min-h-screen flex-col items-center justify-center w-full h-full my-24 pb-24 mb-96 ">
@@ -252,19 +351,16 @@ const handleSignMessage = async (): Promise<{ message: string | null; signature:
                   📇 <span className="font-bold">Address:</span>  {truncateEthAddress(address || "Connect your wallet")}
                   {/* 📇 <span className="font-bold">Address:</span> {address} */}
                 </p>
-                <p>Balance: {balanceOf ?? "Loading..."}</p>
                 <p className="text-xl  text-center">
                   📊{" "}
                   <span className="font-bold">
                     You own this number of NFTs:
                   </span>{" "}
                   {/* {isLoading? ( */}
-                  {isLoading  ? (
+                  {isMinting ? (
                     <span className="opacity-50">loading...</span>
-                  // ) : balanceOf? (
-                  //   balanceOf.toString()
-                  ) : data? (
-                    data.toString()
+                  ) : balanceOf ? (
+                    balanceOf.toString()
                   ) : (
                     "No NFTs"
                   )}
